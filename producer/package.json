@@ -1,0 +1,20 @@
+{
+  "name": "producer",
+  "version": "1.0.0",
+  "description": "RabbitMQ messages producer",
+  "main": "index.js",
+  "scripts": {
+    "start": "node . | bunyan"
+  },
+  "engines": {
+    "node": "8.12"
+  },
+  "author": "Gilles Rasigade",
+  "dependencies": {
+    "amqplib": "0.5.1",
+    "bunyan": "1.8.10",
+    "chpr-logger": "2.8.0",
+    "lodash": "^4.17.4",
+    "mongodb": "2.2.24"
+  }
+}
