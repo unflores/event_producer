@@ -1,0 +1,23 @@
+--- #---
+version: '3'
+volumes:
+  db-data:
+    external: false
+  bundle-data:
+    external: false
+services:
+  producer:
+    build:
+      context: '.'
+      dockerfile: './Dockerfile'
+    environment:
+      AMQP_URL: amqp://guest:guest@rabbit:5672
+      N: 1500
+      TIC: 10
+    hostname: producer
+
+  rabbit:
+    image: rabbitmq:3-management
+    ports:
+      - 5672:5672
+      - 15672:15672

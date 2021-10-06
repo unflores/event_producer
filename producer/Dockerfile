@@ -1,10 +1,17 @@
-FROM node:8.5
+FROM node:14.15.1-alpine3.10
 
-ENV AMQP_URL amqp://guest:guest@rabbitmq:5672
-ENV N 1500
-ENV TIC 10
+RUN apk update && apk add --no-cache bash \
+    bash-completion \
+    build-base \
+    python
 
-ADD . /code
-WORKDIR /code
+ENV APP_HOME /var/www
+
+# working dir
+WORKDIR $APP_HOME
+# hook up source
+ADD . $APP_HOME
+
 RUN npm install --production
-CMD ["npm", "start"]
+
+CMD tail -f /dev/null
