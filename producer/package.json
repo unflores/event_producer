@@ -15,12 +15,13 @@
     "bunyan": "1.8.10",
     "chpr-logger": "3.3.0",
     "lodash": "^4.17.4",
-    "mongodb": "2.2.24"
+    "mongodb": "^4.0.7"
   },
   "devDependencies": {
     "@types/amqplib": "^0.8.2",
     "@types/lodash": "^4.14.175",
-    "@types/mongodb": "^4.0.7",
+    "@types/mongodb": "^4.1.3",
+    "@types/node": "^16.10.3",
     "@typescript-eslint/eslint-plugin": "^4.29.1",
     "@typescript-eslint/parser": "^4.29.1",
     "typescript": "^4.3.5"

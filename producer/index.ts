@@ -1,8 +1,15 @@
 import _ from 'lodash';
-import amqplib from 'amqplib';
+
 import logger from 'chpr-logger';
-import { ObjectID } from 'mongodb';
-import { EVENTS, ERRORS } from './events'
+import { ObjectId } from 'mongodb';
+import {
+  EVENTS,
+  Actor,
+  actorEvents,
+  actorCreateEvents
+} from './events'
+import { initClient, AmqpClient } from './clients/amqpClient';
+
 /**
  * Several events are produced:
  * - actor signup
@@ -20,60 +27,21 @@ import { EVENTS, ERRORS } from './events'
  * keys of the test.
  */
 
-const AMQP_URL = process.env.AMQP_URL || 'amqp://guest:guest@localhost:5672';
-const EXCHANGE = 'events';
 
-const SPECIAL_ACTORS = {
-  'Hubert Sacrin': {
-    events: {
-      rider_signed_up: {
-        probability: 0.5
-      },
-      ride_created: {
-        probability: 0.5
-      },
-      ride_completed: {
-        probability: 0.5
-      }
-    }
-  },
-  'Hubert Cestnul': {
-    events: {
-      rider_signed_up: {
-        probability: 0.5
-      },
-      ride_created: {
-        probability: 0.5
-      },
-      ride_completed: {
-        probability: 0.5
-      }
-    }
-  },
-  'Marcel Bofbof': {
-    events: {
-      rider_signed_up: {
-        probability: 0.5
-      },
-      ride_created: {
-        probability: 0.5
-      },
-      ride_completed: {
-        probability: 0.5
-      }
-    }
-  }
-};
+let client: AmqpClient
 
-/**
- * AMQP client for messages publication
- */
-let client;
 
 /**
  * Full list of actors
  */
-const actors = new Map();
+const actors = new Map<number, Actor>();
+
+type Message = {
+  type: string
+  payload: {
+    [index: string]: string | number | ObjectId
+  }
+}
 
 /**
  * Publish message with possible error applied
@@ -82,7 +50,7 @@ const actors = new Map();
  * @param {String} message.type message type from EVENTS
  * @param {Object} message.payload message content
  */
-async function publish(message) {
+async function publish(message: Message) {
   const errors = _.mapValues(ERRORS, (error, _key) => Math.random() < error.probability);
   logger.info({ errors }, 'Message publication applied errors');
   if (errors.multiple_publication) {
@@ -97,200 +65,92 @@ async function publish(message) {
   if (errors.wrong_schema) {
     // Remove all but one key
     const keptKey = _.sample(Object.keys(message.payload))
-    message = Object.assign(
-      {},
-      { type: message.type },
-      { payload: { [keptKey]: message.payload[keptKey] } }
-    );
+
+    if (typeof keptKey === 'string') {
+      message = Object.assign(
+        {},
+        { type: message.type },
+        { payload: { [keptKey]: message.payload[keptKey] } }
+      );
+    }
   }
 
   if (errors.wrong_value) {
     // Apply wrong value to payload id
     message.payload.id = "undefined";
   }
+
   logger.info({
-    exchange: EXCHANGE,
     routing_key: EVENTS[message.type].routing_key,
     message
   }, 'Message publications');
 
-  client.channel.publish(
-    EXCHANGE,
+  client.publish(
     EVENTS[message.type].routing_key,
-    new Buffer(JSON.stringify(message)), {
-    persistent: false,
-    expiration: 10000 // ms
-  });
+    message
+  );
 }
-
-/**
- * A actor signed up
- *
- * @param {string} name actor name
- */
-function actorSignup(name) {
-  const actor = {
-    id: ObjectID(),
-    name: name || "John Doe"
-  };
-
-  actors.set(actor.id, actor);
-
-  // Message publication...
-  return {
-    type: 'rider_signed_up',
-    payload: actor
+type Errors = {
+  [index: string]: {
+    probability: number
   }
 }
 
-/**
- * A actor updated his phone number
- *
- * @param {Object} actor
- */
-function actorPhoneUpdate(actor) {
-  // Message publication...
-  return {
-    type: 'rider_updated_phone_number',
-    payload: {
-      ..._.pick(actor, 'id'),
-      phone_number: `+336${Math.random().toString().slice(2, 11)}`
-    }
+export const ERRORS: Errors = {
+  wrong_schema: {
+    probability: 0.05
+  },
+  wrong_value: {
+    probability: 0.05
+  },
+  missing_publication: {
+    probability: 0.05
+  },
+  multiple_publication: {
+    probability: 0.1
   }
-}
-
-/**
- * A actor ordered a ride
- *
- * @param {Object} actor
- */
-function actorRideCreate(actor) {
-  const ride = {
-    id: ObjectID(),
-    amount: 3 + Math.floor(Math.random() * 30 * 100) / 100,
-    rider_id: actor.id
-  };
-
-  // Attach the ride id to the actor for completed or canceled
-  actors.set(actor.id, {
-    ...actor,
-    ride_id: ride.id
-  });
-  logger.info("yo what'sup")
-
-  // Message publication...
-  return {
-    type: 'ride_created',
-    payload: ride
-  };
-}
-
-/**
- * A actor completed a ride
- *
- * @param {Object} actor
- */
-function actorRideCompleted(actor) {
-  const ride = {
-    id: actor.ride_id || ObjectID(),
-    amount: 3 + Math.floor(Math.random() * 30 * 100) / 100,
-    rider_id: actor.id
-  };
-
-  // Message publication...
-  return {
-    type: 'ride_completed',
-    payload: ride
-  };
-}
-
-/**
- * Rider actions to be taken each tic
- *
- * @param {Object} actor
- */
-async function actorActions(actor) {
-  const probabilities = Object.assign({}, EVENTS, _.get(SPECIAL_ACTORS, `${actor.name}.events`, {}));
-
-  if (Math.random() < probabilities.rider_updated_phone_number.probability) {
-    await publish(actorPhoneUpdate(actor));
-  }
-
-  if (Math.random() < probabilities.ride_created.probability) {
-    logger.info({ event: actorRideCreate(actor) })
-    await publish(actorRideCreate(actor));
-  }
-
-  if (Math.random() < probabilities.ride_completed.probability) {
-    await publish(actorRideCompleted(actor));
-  }
-}
+};
 
 /**
  * Global test tic method
  *
  * @param {Number} n number of actors
  */
-async function tic(n) {
+async function tic(maxActors: number) {
   logger.debug('tic');
-
-  // if our iteration larger then the total actors
-  // then we can have a signup event
-  if (n > actors.size && Math.random() < EVENTS.rider_signed_up.probability) {
-    actorSignup();
-  }
-
-  // Special actors creation
-  // Every iteration we can have a special actor sign up
-  for (const name in SPECIAL_ACTORS) {
-    if (Math.random() < SPECIAL_ACTORS[name].events.rider_signed_up.probability) {
-      actorSignup(name);
-
-      // Unique special actor creation:
-      SPECIAL_ACTORS[name].events.rider_signed_up.probability = 0;
-    }
-  }
-
   // For every iteration our actors to run their events
-  const tics = [];
-  actors.forEach(actor => tics.push(actorActions(actor)));
+  const tics: Array<Promise<void>> = [];
+
+  const events = actorCreateEvents(maxActors)
+  events.forEach(event => tics.push(publish(event)))
+
+  actors.forEach(actor => {
+    actorEvents(actor).map((event) => tics.push(publish(event)))
+  })
   logger.info({ tics_length: tics.length }, 'Riders tic length');
   logger.info({ tics: tics.length }, 'Number of actors tics');
   await Promise.all(tics);
 }
-
-/**
- * Initialize the AMQP connection and setup
- *
- * @returns {void}
- */
-async function init() {
-  logger.info('> RabbitMQ initialization');
-  client = await amqplib.connect(AMQP_URL);
-  client.channel = await client.createChannel();
-  await client.channel.assertExchange(EXCHANGE, 'topic', {
-    durable: true
-  });
-}
+const totalRiders = process.env.N as unknown as number
+const ticIntervalInMilliseconds = process.env.TIC as unknown as number
 
 /**
  * Main function of the script
  * @param {number} [n=10] Number of actors to start
  * @param {number} [interval=1000] Time interval (ms) before increasing the messages rate
  */
-async function main(n = 10, interval = 1000) {
-
-  await init();
+async function main(numberOfActors = 10, interval = 1000) {
+  client = await initClient({})
 
   while (true) {
     await Promise.all([
-      tic(n),
+      tic(numberOfActors),
       new Promise(resolve => setTimeout(resolve, interval))
     ]);
   }
 }
 
-main(process.env.N, process.env.TIC)
+main(totalRiders, ticIntervalInMilliseconds)
   .then(() => {
     logger.info('> Worker stopped');
     process.exit(0);
