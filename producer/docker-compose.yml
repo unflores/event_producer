@@ -9,7 +9,10 @@ services:
   producer:
     build:
       context: '.'
-      dockerfile: './Dockerfile'
+      dockerfile: './docker/Dockerfile'
+    entrypoint: './docker/entrypoint.sh'
+    volumes:
+      - '.:/var/www:cached'
     environment:
       AMQP_URL: amqp://guest:guest@rabbit:5672
       N: 1500
