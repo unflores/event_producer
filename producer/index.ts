@@ -1,8 +1,8 @@
-const _ = require('lodash');
-const amqplib = require('amqplib');
-const logger = require('chpr-logger');
-const { ObjectID } = require('mongodb');
-const { EVENTS, ERRORS } = require('./events')
+import _ from 'lodash';
+import amqplib from 'amqplib';
+import logger from 'chpr-logger';
+import { ObjectID } from 'mongodb';
+import { EVENTS, ERRORS } from './events'
 /**
  * Several events are produced:
  * - actor signup
@@ -83,7 +83,7 @@ const actors = new Map();
  * @param {Object} message.payload message content
  */
 async function publish(message) {
-  const errors = _.mapValues(ERRORS, (error, key) => Math.random() < error.probability);
+  const errors = _.mapValues(ERRORS, (error, _key) => Math.random() < error.probability);
   logger.info({ errors }, 'Message publication applied errors');
   if (errors.multiple_publication) {
     await publish(message);
@@ -100,7 +100,7 @@ async function publish(message) {
     message = Object.assign(
       {},
       { type: message.type },
-      { payload:  {[keptKey]: message.payload[keptKey]}}
+      { payload: { [keptKey]: message.payload[keptKey] } }
     );
   }
 
@@ -118,9 +118,9 @@ async function publish(message) {
     EXCHANGE,
     EVENTS[message.type].routing_key,
     new Buffer(JSON.stringify(message)), {
-      persistent: false,
-      expiration: 10000 // ms
-    });
+    persistent: false,
+    expiration: 10000 // ms
+  });
 }
 
 /**
@@ -154,7 +154,7 @@ function actorPhoneUpdate(actor) {
     type: 'rider_updated_phone_number',
     payload: {
       ..._.pick(actor, 'id'),
-      phone_number: `+336${Math.random().toString().slice(2,11)}`
+      phone_number: `+336${Math.random().toString().slice(2, 11)}`
     }
   }
 }
@@ -217,7 +217,7 @@ async function actorActions(actor) {
   }
 
   if (Math.random() < probabilities.ride_created.probability) {
-    logger.info({event: actorRideCreate(actor)})
+    logger.info({ event: actorRideCreate(actor) })
     await publish(actorRideCreate(actor));
   }
 
@@ -295,8 +295,8 @@ main(process.env.N, process.env.TIC)
     logger.info('> Worker stopped');
     process.exit(0);
   }).catch(err => {
-  logger.error({
-    err
-  }, '! Worker stopped unexpectedly');
-  process.exit(1);
-});
+    logger.error({
+      err
+    }, '! Worker stopped unexpectedly');
+    process.exit(1);
+  });
