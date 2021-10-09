@@ -95,16 +95,17 @@ async function publish(message) {
   }
 
   if (errors.wrong_schema) {
-    // Apply wrong schema (keep only one random value from message payload)
+    // Remove all but one key
+    const keptKey = _.sample(Object.keys(message.payload))
     message = Object.assign(
       {},
       { type: message.type },
-      { payload: _.sample(message.payload) }
+      { payload:  {[keptKey]: message.payload[keptKey]}}
     );
   }
 
   if (errors.wrong_value) {
-    // Apply wrong value to an always-present value
+    // Apply wrong value to payload id
     message.payload.id = "undefined";
   }
   logger.info({
