@@ -4,17 +4,22 @@
   "description": "RabbitMQ messages producer",
   "main": "index.js",
   "scripts": {
-    "start": "node . | bunyan"
+    "build": "yarn clean && yarn tsc",
+    "clean": "rm -rf dist",
+    "build:watch": "yarn build --watch",
+    "start": "NODE_OPTIONS=--enable-source-maps node dist/index.js  | bunyan"
   },
-  "engines": {
-    "node": "8.12"
-  },
-  "author": "Gilles Rasigade",
+  "author": "Austin FLORES",
   "dependencies": {
     "amqplib": "0.5.1",
     "bunyan": "1.8.10",
-    "chpr-logger": "2.8.0",
+    "chpr-logger": "3.3.0",
     "lodash": "^4.17.4",
     "mongodb": "2.2.24"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^4.29.1",
+    "@typescript-eslint/parser": "^4.29.1",
+    "typescript": "^4.3.5"
   }
 }
