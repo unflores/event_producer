@@ -13,6 +13,7 @@ services:
     entrypoint: './docker/entrypoint.sh'
     volumes:
       - '.:/var/www:cached'
+      - './node_modules/:/var/www/node_modules'
     environment:
       AMQP_URL: amqp://guest:guest@rabbit:5672
       N: 1500
