@@ -1,5 +1,23 @@
 import { ObjectId } from 'mongodb';
 import _ from 'lodash';
+import logger from 'chpr-logger';
+
+/**
+ * Several events are produced:
+ * - actor signup
+ * - actor phone update
+ * - ride created
+ * - ride completed
+ *
+ * Errors production:
+ * - some events are sent twice
+ * - some events are sent with wrong schema
+ * - some events are sent with wrong value (ride amount = -2 €)
+ * - some events are in the wrong order (ride create before actor signup)
+ *
+ * Special actors exist and send more events than others: these actors are the
+ * keys of the test.
+ */
 
 type Events = {
   [index: string]: {
@@ -9,8 +27,8 @@ type Events = {
 }
 
 export type Actor = {
-  id: number,
-  ride_id: number | undefined,
+  id: ObjectId,
+  ride_id?: ObjectId,
   name: string
 }
 
@@ -38,7 +56,17 @@ export const EVENTS: Events = {
   }
 };
 
-export const SPECIAL_ACTORS = {
+type ActorEventSetup = {
+  [index: string]: {
+    events: {
+      [index: string]: {
+        probability: number
+      }
+    }
+  }
+}
+
+export const SPECIAL_ACTORS: ActorEventSetup = {
   'Hubert Sacrin': {
     events: {
       rider_signed_up: {
@@ -79,6 +107,11 @@ export const SPECIAL_ACTORS = {
     }
   }
 };
+
+/**
+ * Full list of actors
+ */
+const actors = new Map<ObjectId, Actor>();
 
 /**
  * A actor updated his phone number
@@ -159,7 +192,7 @@ function actorCreateEvent(name: string | null = null): Event {
   }
 }
 
-export function actorCreateEvents(maxActors: number): Array<Event> {
+export function buildActorCreateEvents(maxActors: number): Array<Event> {
 
   const events: Array<Event> = []
   // if our iteration larger then the total actors
@@ -178,6 +211,8 @@ export function actorCreateEvents(maxActors: number): Array<Event> {
       SPECIAL_ACTORS[name].events.rider_signed_up.probability = 0;
     }
   }
+
+  return events
 }
 
 /**
@@ -185,7 +220,7 @@ export function actorCreateEvents(maxActors: number): Array<Event> {
  *
  * @param {Object} actor
  */
-export function actorEvents(actor: Actor) {
+function actorEvents(actor: Actor) {
   const probabilities = Object.assign({}, EVENTS, _.get(SPECIAL_ACTORS, `${actor.name}.events`, {}));
   const events: Array<Event> = []
 
@@ -203,5 +238,9 @@ export function actorEvents(actor: Actor) {
   }
 
   return events;
+}
+
+export function buildActorEvents() {
+  return Array.from(actors.values()).map(actorEvents).flat()
 }
 

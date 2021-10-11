@@ -1,17 +1,17 @@
 import amqplib from 'amqplib';
+import logger from 'chpr-logger';
 
 type Options = {
   amqpUrl?: string,
   exchange?: string
 }
 
-
-
 export const initClient = async ({ amqpUrl, exchange }: Options) => {
-  // logger.info('> RabbitMQ initialization');
-
   amqpUrl = (amqpUrl || process.env.AMQP_URL) as string
   exchange = (exchange || process.env.EXCHANGE) as string
+
+  logger.info('> RabbitMQ initialization');
+  logger.info(`exchange: ${exchange}, url: ${amqpUrl}`);
 
   const client = await amqplib.connect(amqpUrl);
   const channel = await client.createChannel();
