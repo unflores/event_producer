@@ -2,7 +2,7 @@ import _ from 'lodash';
 
 import logger from 'chpr-logger';
 import { ObjectId } from 'mongodb';
-import * as simulator from './events'
+import * as simulator from './simulators/rides'
 import { initClient, AmqpClient } from './clients/amqpClient';
 
 let client: AmqpClient
