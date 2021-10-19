@@ -3,20 +3,16 @@ import _ from 'lodash';
 import logger from 'chpr-logger';
 
 /**
+ * This simulator creates drivers and actions associated
+ *
  * Several events are produced:
  * - actor signup
  * - actor phone update
- * - ride created
- * - ride completed
+ * - ride creation
+ * - ride completion
  *
- * Errors production:
- * - some events are sent twice
- * - some events are sent with wrong schema
- * - some events are sent with wrong value (ride amount = -2 €)
- * - some events are in the wrong order (ride create before actor signup)
  *
- * Special actors exist and send more events than others: these actors are the
- * keys of the test.
+ * Special actors exist and send more events than others and they should standout in the simulation
  */
 
 type Events = {
@@ -32,9 +28,15 @@ export type Actor = {
   name: string
 }
 
+type PayloadValue = string | number | ObjectId | Payload
+
+type Payload = {
+  [index: string]: PayloadValue
+}
+
 export type Event = {
-  type: any,
-  payload: any
+  type: string,
+  payload: Payload
 }
 
 export const EVENTS: Events = {

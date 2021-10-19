@@ -9,9 +9,13 @@ let client: AmqpClient
 
 type Message = {
   type: string
-  payload: {
-    [index: string]: string | number | ObjectId
-  }
+  payload: Payload
+}
+
+type PayloadValue = string | number | ObjectId | Payload
+
+type Payload = {
+  [index: string]: PayloadValue
 }
 
 /**
